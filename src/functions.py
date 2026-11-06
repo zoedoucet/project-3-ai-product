@@ -35,9 +35,29 @@ def load_reviews():
     pass
 
 
+
+
 def clean_text(text):
-    """Remove HTML and extra whitespace. The app calls this too, on the user's input."""
-    pass
+    """Clean text extracted from the forest entomology PDF."""
+    import re
+    import unicodedata
+
+    if not isinstance(text, str):
+        return ""
+
+    # 1. Repair words broken across lines
+    text = re.sub(r"(\w)-\s*\n\s*(\w)", r"\1\2", text)
+
+    # 2. Replace PDF extraction artifacts BEFORE Unicode normalization
+    text = re.sub(r"[`´ˆ]", " ", text)
+
+    # 3. Normalize ligatures such as ﬁ -> fi
+    text = unicodedata.normalize("NFKC", text)
+
+    # 4. Normalize whitespace
+    text = re.sub(r"\s+", " ", text)
+
+    return text.strip()
 
 
 # Model track
@@ -67,3 +87,4 @@ def answer_question(question, collection, k=5):
 def evaluate(questions, answer_fn):
     """Run the evaluation set and return one row per question: hit, cites, refused, cost."""
     pass
+
