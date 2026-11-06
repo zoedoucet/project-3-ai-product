@@ -34,3 +34,6 @@ env/
 Thumbs.db
 .vscode/
 .idea/
+
+# notes and ideas
+notebooks/00_notes_and_ideas.ipynb
