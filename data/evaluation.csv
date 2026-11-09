@@ -1,0 +1,16 @@
+question_id,question,answerable,page,answer
+Q01,"Are most insects harmful, or are many of them beneficial?",True,14,Most insects are not harmful and many are beneficial. Fewer than 1% of known insect species are considered pests.
+Q02,Do all bark beetle species cause major outbreaks in forests?,True,140,No. Only a small minority of bark beetle species are outbreak species.
+Q03,What is the difference between insects that eat leaves and leaf miners?,True,245,"Some insects feed externally on leaves, while leaf miners feed between the upper and lower leaf surfaces as larvae."
+Q04,Can bark beetles attack hardwood trees as well as conifers?,True,325,"Yes. Some bark beetles attack hardwoods, including species of Carya and Ulmus."
+Q05,What animals or insects naturally help control woodboring beetles?,True,392,"Predatory insects help regulate woodborer populations. Some woodboring beetles are also prey for birds, bats, lizards and other animals."
+Q06,My pine tree has small holes in its bark. Could insects be responsible?,True,326,"Yes. Some bark beetles, such as Tomicus species, create entrance holes surrounded by resin. Holes alone do not confirm the cause."
+Q07,My pine tree is losing its needles. Could insects be causing this?,True,65,"Yes. Some insects feed on needles and can cause defoliation, but needle loss alone does not identify the cause."
+Q08,Some leaves on my tree have unusual patterns inside them. Could insects be responsible?,True,245,Yes. Leaf-mining larvae feed between the upper and lower leaf surfaces and produce characteristic damage patterns.
+Q09,Some leaves on my tree have missing tissue. Could insects be responsible?,True,245,"Yes. Some foliage-feeding insects feed externally on leaves and remove or consume leaf tissue, sometimes including the leaf veins."
+Q10,Can European spruce bark beetles attack trees that have fallen during storms?,True,111,Yes. European spruce bark beetles can colonize windthrown and freshly cut trees.
+Q11,Can drought make trees more vulnerable to insect attacks?,True,24,Yes. Prolonged drought can reduce tree defenses and contribute to increases in insect populations.
+Q12,I found insects under the bark of a dead tree. Does that mean they killed it?,True,62,"Not necessarily. Many insects colonize dying or dead trees, so finding them does not prove they caused the tree's death."
+Q13,My spruce tree has brown needles. Which exact insect species is attacking it?,False,,The insect species cannot be identified from brown needles alone. More information and examination are needed.
+Q14,My pine tree has holes in its bark. What exact pesticide and dosage should I apply?,False,,A specific pesticide and dosage cannot be recommended without identifying the pest and assessing the tree.
+Q15,Will my oak tree die within the next two weeks because insects are eating its leaves?,False,,The tree's survival cannot be predicted from this information alone. The severity of damage and the tree's condition need assessment.
