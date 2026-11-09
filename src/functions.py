@@ -60,18 +60,6 @@ def clean_text(text):
     return text.strip()
 
 
-# Model track
-
-def make_target(ratings):
-    """Turn star ratings into your target, with the rule stated in notebook 01."""
-    pass
-
-
-def compare_models(models, X, y, cv, scoring):
-    """Cross-validate each approach on the same folds and return a tidy table with the training time."""
-    pass
-
-
 # LLM track
 
 def build_index(documents):
@@ -114,3 +102,96 @@ def chunk_document(pages, size=150, overlap=30):
             })
 
     return chunks
+
+def search_chroma(question, model, collection, k=5, pdf_page=None):
+    """Retrieve relevant textbook chunks from Chroma."""
+
+    # Convert the question into an embedding
+    query_embedding = model.encode(
+        [question],
+        normalize_embeddings=True)
+
+    # Apply an optional PDF page filter
+    filters = {"pdf_page": pdf_page} if pdf_page is not None else None
+
+    # Search the database
+    results = collection.query(
+        query_embeddings=query_embedding.tolist(),
+        n_results=k,
+        where=filters,
+        include=["documents", "metadatas", "distances"]
+    )
+    return results
+
+
+def build_prompt(question, results):
+    """Build a grounded prompt using retrieved textbook passages."""
+
+    # Combine the retrieved passages with their source information
+    sources = []
+
+    for i in range(len(results["ids"][0])):
+        chunk_id = results["ids"][0][i]
+        page = results["metadatas"][0][i]["pdf_page"]
+        text = results["documents"][0][i]
+
+        sources.append(
+            f"Source ID: {chunk_id}\n"
+            f"PDF page: {page}\n"
+            f"Text: {text}"
+        )
+
+    context = "\n\n".join(sources)
+
+    # Define the rules for the assistant
+    prompt = f"""
+You are the polite and helpful Forest Pest Assistant, helping garden
+and small forest owners understand possible insect-related tree problems.
+
+Answer questions using ONLY the textbook sources provided below.
+
+Rules:
+- Use only information supported by the provided sources.
+- Cite supporting evidence using PDF page numbers, for example [PDF p. 326].
+- Do not invent facts or references.
+- Do not identify an exact insect species from insufficient symptoms.
+- Do not recommend specific pesticides or dosages.
+- Do not predict whether a tree will die without sufficient evidence.
+- Keep answers clear, polite, and understandable for non-experts.
+
+Clarifying questions:
+- If important information is missing, ask a relevant clarifying question.
+- Ask only one clarifying question at a time.
+- Ask no more than five clarifying questions in total.
+- Do not suggest that a diagnosis is certain when the evidence is insufficient.
+- If the information is still insufficient after five clarifying questions, say:
+  "Unfortunately, I do not have enough information to give you a reliable answer."
+
+Insufficient textbook evidence:
+- If the retrieved textbook sources do not support an answer, say:
+  "I don't know based on the available textbook evidence."
+- Do not ask clarifying questions when the missing information is absent
+  from the textbook rather than from the user's description.
+
+Textbook sources:
+{context}
+
+Question:
+{question}
+
+Answer:
+"""
+
+    return prompt
+
+def generate_answer(prompt, client, model_name="gpt-6-luna"):
+    """Generate an answer using the OpenAI API."""
+
+    # Send the grounded prompt to the language model
+    response = client.responses.create(
+        model=model_name,
+        input=prompt
+    )
+
+    # Return the generated text
+    return response.output_text
