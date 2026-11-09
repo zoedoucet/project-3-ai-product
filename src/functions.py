@@ -35,8 +35,6 @@ def load_reviews():
     pass
 
 
-
-
 def clean_text(text):
     """Clean text extracted from the forest entomology PDF."""
     import re
@@ -59,6 +57,33 @@ def clean_text(text):
 
     return text.strip()
 
+# geting the right page from the book
+def get_book_page(text):
+    """Extract the printed page number from a textbook header."""
+    import re
+
+    header = text.strip().splitlines()[0]
+
+    # Chapter-opening pages have no normal page header
+    if header.startswith("Chapter"):
+        return None
+
+    # Allow spaces between an author's initial and the period
+    author_header = re.match(r"^(\d+)\s+[A-Z]\s*\.", header)
+
+    if author_header:
+        return int(author_header.group(1))
+
+    # Chapter headers: "9 Foliage Feeders 267Table ..."
+    chapter_header = re.match(
+        r"^\d+\s+.+?\s+(\d+)(?=Table|\s|$)",
+        header
+    )
+
+    if chapter_header:
+        return int(chapter_header.group(1))
+
+    return None
 
 # LLM track
 
@@ -125,25 +150,37 @@ def search_chroma(question, model, collection, k=5, pdf_page=None):
 
 
 def build_prompt(question, results):
-    """Build a grounded prompt using retrieved textbook passages."""
+    """Build a grounded prompt using retrieved textbook sources."""
 
-    # Combine the retrieved passages with their source information
     sources = []
 
+    # Collect the retrieved text and its citation information
     for i in range(len(results["ids"][0])):
-        chunk_id = results["ids"][0][i]
-        page = results["metadatas"][0][i]["pdf_page"]
+        source_id = results["ids"][0][i]
         text = results["documents"][0][i]
+        metadata = results["metadatas"][0][i]
 
-        sources.append(
-            f"Source ID: {chunk_id}\n"
-            f"PDF page: {page}\n"
+        # Prefer the printed textbook page when available
+        pdf_page = metadata["pdf_page"]
+        book_page = metadata.get("book_page")
+
+        if book_page is not None:
+            citation = f"Book p. {book_page}"
+        else:
+            citation = f"PDF p. {pdf_page}"
+
+        source = (
+            f"Source ID: {source_id}\n"
+            f"Citation: [{citation}]\n"
             f"Text: {text}"
         )
 
+        sources.append(source)
+
+    # Combine all retrieved sources into one context
     context = "\n\n".join(sources)
 
-    # Define the rules for the assistant
+    # Give the assistant its instructions and textbook evidence
     prompt = f"""
 You are the polite and helpful Forest Pest Assistant, helping garden
 and small forest owners understand possible insect-related tree problems.
@@ -152,8 +189,10 @@ Answer questions using ONLY the textbook sources provided below.
 
 Rules:
 - Use only information supported by the provided sources.
-- Cite supporting evidence using PDF page numbers, for example [PDF p. 326].
-- Do not invent facts or references.
+- Cite supporting evidence using the exact citation labels supplied with each source.
+- Prefer printed textbook pages, for example [Book p. 594].
+- If a source has no printed page number, use its PDF page citation.
+- Never invent facts, references, or page numbers.
 - Do not identify an exact insect species from insufficient symptoms.
 - Do not recommend specific pesticides or dosages.
 - Do not predict whether a tree will die without sufficient evidence.
