@@ -88,3 +88,29 @@ def evaluate(questions, answer_fn):
     """Run the evaluation set and return one row per question: hit, cites, refused, cost."""
     pass
 
+def chunk_document(pages, size=150, overlap=30):
+    """Split PDF pages into overlapping chunks with page metadata."""
+
+    chunks = []
+    step = size - overlap
+
+    if step <= 0:
+        raise ValueError("Overlap must be smaller than chunk size.")
+
+    for _, page in pages.iterrows():
+        words = page["clean_text"].split()
+        pdf_page = int(page["pdf_page"])
+
+        for start in range(0, len(words), step):
+            chunk_words = words[start:start + size]
+
+            if not chunk_words:
+                continue
+
+            chunks.append({
+                "id": f"page_{pdf_page}_chunk_{start}",
+                "text": " ".join(chunk_words),
+                "pdf_page": pdf_page
+            })
+
+    return chunks
