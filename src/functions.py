@@ -195,3 +195,23 @@ def generate_answer(prompt, client, model_name="gpt-6-luna"):
 
     # Return the generated text
     return response.output_text
+
+
+def ask_tree_assistant(question, model, collection, client, k=5):
+    """Answer a question using textbook retrieval and an LLM."""
+
+    # Retrieve relevant textbook passages
+    results = search_chroma(
+        question=question,
+        model=model,
+        collection=collection,
+        k=k
+    )
+
+    # Build a prompt from the retrieved evidence
+    prompt = build_prompt(question, results)
+
+    # Generate an answer
+    answer = generate_answer(prompt, client)
+
+    return answer
