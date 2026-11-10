@@ -223,17 +223,28 @@ Answer:
 
     return prompt
 
-def generate_answer(prompt, client, model_name="gpt-6-luna"):
-    """Generate an answer using the OpenAI API."""
+def generate_answer(prompt, client, model_name="gpt-6-luna", return_usage=False):
+    """Generate an answer and optionally return token usage."""
 
-    # Send the grounded prompt to the language model
     response = client.responses.create(
         model=model_name,
         input=prompt
     )
 
-    # Return the generated text
-    return response.output_text
+    answer = response.output_text
+
+    # Preserve the original behavior for the chatbot
+    if not return_usage:
+        return answer
+
+    # Return additional information for evaluation
+    usage = response.usage
+
+    return {
+        "answer": answer,
+        "input_tokens": usage.input_tokens if usage else 0,
+        "output_tokens": usage.output_tokens if usage else 0,
+        "total_tokens": usage.total_tokens if usage else 0}
 
 
 def ask_tree_assistant(question, model, collection, client, k=5):
@@ -254,3 +265,38 @@ def ask_tree_assistant(question, model, collection, client, k=5):
     answer = generate_answer(prompt, client)
 
     return answer
+
+def evaluate_question(question, model, collection, client, k=5, llm_model="gpt-6-luna"):
+    """Evaluate one question and record its answer, sources, time, and tokens."""
+    import time
+
+    start = time.perf_counter()
+
+    # Retrieves relevant textbook passages
+    results = search_chroma(question, model, collection, k=k)
+
+    # Builds the prompt using the retrieved evidence
+    prompt = build_prompt(question, results)
+
+    # Generates the answer and collect token usage
+    response = generate_answer(
+        prompt,
+        client,
+        model_name=llm_model,
+        return_usage=True)
+
+    # Measures elapsed time
+    response_time = time.perf_counter() - start
+
+    # Extracts the PDF page numbers of retrieved passages
+    retrieved_pages = [
+        metadata["pdf_page"]
+        for metadata in results["metadatas"][0]]
+
+    return {
+        "answer": response["answer"],
+        "retrieved_pages": retrieved_pages,
+        "response_time": response_time,
+        "input_tokens": response["input_tokens"],
+        "output_tokens": response["output_tokens"],
+        "total_tokens": response["total_tokens"]}
