@@ -149,7 +149,7 @@ def search_chroma(question, model, collection, k=5, pdf_page=None):
     return results
 
 
-def build_prompt(question, results):
+def build_prompt(question, results, history=None):
     """Build a grounded prompt using retrieved textbook sources."""
 
     sources = []
@@ -180,6 +180,16 @@ def build_prompt(question, results):
     # Combine all retrieved sources into one context
     context = "\n\n".join(sources)
 
+    # formating previous messages for the assistant to follow
+    conversation = []
+    if history:
+        for message in history:
+            role = message["role"]
+            content = message["content"]
+            conversation.append(f"{role}:{content}")
+
+    conversation_text = "\n".join(conversation)
+
     # Give the assistant its instructions and textbook evidence
     prompt = f"""
 You are the polite and helpful Tree Health Investigator, helping garden
@@ -188,34 +198,43 @@ and small forest owners understand possible insect-related tree problems.
 Answer questions using ONLY the textbook sources provided below.
 
 Rules:
-- Use only information supported by the provided sources.
-- Cite supporting evidence using the exact citation labels supplied with each source.
-- Prefer printed textbook pages, for example [Book p. 594].
-- If a source has no printed page number, use its PDF page citation.
-- Never invent facts, references, or page numbers.
-- Do not identify an exact insect species from insufficient symptoms.
-- Do not recommend specific pesticides or dosages.
-- Do not predict whether a tree will die without sufficient evidence.
-- Keep answers clear, polite, and understandable for non-experts.
+- Base your answers only on the provided textbook sources and the user's observations. Do not invent facts, references, or page numbers.
+- Cite supporting textbook evidence using the exact citation labels provided. Prefer [Book p. X] when available; otherwise use [PDF p. X].
+- Use the conversation history to remember observations, previous conclusions, and questions already answered. Previous assistant responses are not independent textbook evidence.
+- Focus on the user's newest information and build on earlier findings without repeating explanations unnecessarily.
+- Identify the most plausible insect group or species when the observations and textbook evidence support it. Clearly distinguish a tentative identification from a confirmed one.
+- Explain uncertainty when relevant, but do not withhold a useful, evidence-supported hypothesis simply because an exact identification cannot be confirmed.
+- Do not recommend specific pesticides or dosages, or predict tree death without sufficient evidence.
+- Keep answers clear, concise, polite, and understandable for non-experts.
 
 Clarifying questions:
-- If important information is missing, ask a relevant clarifying question.
-- Ask only one clarifying question at a time.
-- Ask no more than five clarifying questions in total.
-- Do not suggest that a diagnosis is certain when the evidence is insufficient.
-- If the information is still insufficient after five clarifying questions, say:
-  "Unfortunately, I do not have enough information to give you a reliable answer."
+- When a useful observation could help narrow down the possible insect
+  group or species, ask one specific clarification question, even if
+  you can already offer an initial hypothesis.
+- Ask at most one question per response and no more than five during an investigation.
+- Do not repeat questions already answered, including indirectly.
+  If the user says they do not know or cannot check something,
+  treat that information as unavailable and do not ask for it again
+  in a different form.
+  - Interpret short replies in the context of the preceding question.
+- Provide the best-supported hypothesis at each stage of the investigation.
+  Continue asking questions only when a new, realistically observable
+  detail could meaningfully narrow the identification.
+  Stop when no useful question remains or when the user cannot provide
+  the information needed to narrow it further.
+- If five clarification questions have been asked and the available evidence still cannot support a useful conclusion, say: "Unfortunately, I do not have enough information to give you a reliable answer."
 
 Insufficient textbook evidence:
-- If the retrieved textbook sources do not support an answer, say:
-  "I don't know based on the available textbook evidence."
-- Do not ask clarifying questions when the missing information is absent
-  from the textbook rather than from the user's description.
+- If the provided textbook sources cannot support a useful answer or hypothesis, say: "I can't help you based on the available textbook evidence."
+- Do not ask for additional observations when the missing information is in the textbook evidence rather than the user's description.
 
 Textbook sources:
 {context}
 
-Question:
+Previous conversation:
+{conversation_text}
+
+Current user message:
 {question}
 
 Answer:
@@ -247,23 +266,61 @@ def generate_answer(prompt, client, model_name="gpt-6-luna", return_usage=False)
         "total_tokens": usage.total_tokens if usage else 0}
 
 
-def ask_tree_assistant(question, model, collection, client, k=5):
+def ask_tree_assistant(question, model, collection, client, k=5, history=None,
+                       previous_results = None, return_results = False):
     """Answer a question using textbook retrieval and an LLM."""
+
+    # taking user question into account
+    search_query = question
+
+    # adding earlier questions and infromation
+    if history:
+        previous_questions = [
+            message["content"]
+            for message in history
+            if message["role"] == "user"
+        ]
+
+        if previous_questions:
+            original_problem = previous_questions[0]
+            search_query = original_problem + " " + question
 
     # Retrieve relevant textbook passages
     results = search_chroma(
-        question=question,
+        question=search_query,
         model=model,
         collection=collection,
         k=k
     )
 
+    # combining previous and newly retrieved textbook passages
+    if previous_results is not None:
+        combined = {
+            "ids":[[]],
+            "documents":[[]],
+            "metadatas":[[]]
+        }
+        seen_ids = set()
+        for source in [results, previous_results]:
+            for i, chunk_id in enumerate(source["ids"][0]):
+                if chunk_id not in seen_ids:
+                    combined["ids"][0].append(chunk_id)
+                    combined["documents"][0].append(
+                        source["documents"][0][i]
+                    )
+                    combined["metadatas"][0].append(
+                        source["metadatas"][0][i]
+                    )
+                    seen_ids.add(chunk_id)
+        results = combined
     # Build a prompt from the retrieved evidence
-    prompt = build_prompt(question, results)
-
+    prompt = build_prompt(question, results, history=history)
     # Generate an answer
     answer = generate_answer(prompt, client)
 
+    if return_results:
+        return answer, results
+    
     return answer
 
 def evaluate_question(question, model, collection, client, k=5, llm_model="gpt-6-luna"):
