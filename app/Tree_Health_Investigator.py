@@ -108,6 +108,9 @@ st.markdown("""
         grounded in forest entomology research.
     </p>""",  unsafe_allow_html=True)
 
+if st.button("ℹ️ About & How to Use"):
+    st.switch_page("pages/1_About.py")
+    
 @st.cache_resource
 def load_core():
     """Load the saved model, or build the pipeline, ONCE per session (not on every rerun).
