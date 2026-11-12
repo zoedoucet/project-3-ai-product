@@ -37,3 +37,7 @@ Thumbs.db
 
 # notes and ideas
 notebooks/00_notes_and_ideas.ipynb
+
+# presentation slides 
+app/pages/2_presentation.py
+app/slides/
